@@ -1,18 +1,18 @@
+
 const state = {
     services: [],
-    favorites: new Set(JSON.parse(localStorage.getItem('ogg-favorites') || '[]')),
-    view: 'all'
+    favorites: new Set(JSON.parse(localStorage.getItem("ogg-favorites") || "[]")),
+    view: "all"
 };
 
 const el = {
-    services: document.querySelector('#services'),
-    status: document.querySelector('#status'),
-    empty: document.querySelector('#empty-state'),
-    template: document.querySelector('#service-template'),
-    search: document.querySelector('#search')
+    services: document.querySelector("#services"),
+    status: document.querySelector("#status"),
+    empty: document.querySelector("#empty-state"),
+    template: document.querySelector("#service-template"),
+    search: document.querySelector("#search")
 };
 
-// Altijd absolute URL gebruiken
 const API_URL = new URL("./data/services.json", window.location.href).href;
 
 const dateFormatter = new Intl.DateTimeFormat("nl-NL", {
@@ -35,7 +35,6 @@ function saveFavorites() {
 
 function filteredServices() {
     const q = el.search.value.trim().toLowerCase();
-
     return state.services.filter(s =>
         (state.view !== "favorites" || state.favorites.has(serviceKey(s))) &&
         (!q || `${s.gemeente} ${s.voorganger} ${s.titel}`.toLowerCase().includes(q))
@@ -43,7 +42,6 @@ function filteredServices() {
 }
 
 function render() {
-
     const items = filteredServices();
 
     el.services.replaceChildren();
@@ -52,7 +50,6 @@ function render() {
     let lastDay = "";
 
     for (const service of items) {
-
         const date = new Date(service.start_at);
 
         if (date.toDateString() !== lastDay) {
@@ -61,7 +58,6 @@ function render() {
             const h = document.createElement("h1");
             h.className = "day-heading";
             h.textContent = dateFormatter.format(date);
-
             el.services.append(h);
         }
 
@@ -99,7 +95,6 @@ function render() {
         fav.classList.toggle("active", state.favorites.has(key));
 
         fav.onclick = () => {
-
             if (state.favorites.has(key))
                 state.favorites.delete(key);
             else
@@ -115,16 +110,22 @@ function render() {
 
 async function load() {
 
-    el.status.className = "status";
-    el.status.textContent = "Diensten laden…";
+    el.status.textContent = "Diensten laden...";
 
     try {
+
+        console.log("API_URL =", API_URL);
 
         const response = await fetch(API_URL, {
             cache: "no-store"
         });
 
-        if (!response.ok)
-            throw new Error(`HTTP ${response.status}`);
+        console.log("HTTP STATUS =", response.status);
 
-       
+        if (!response.ok) {
+            throw new Error("HTTP " + response.status);
+        }
+
+        const text = await response.text();
+
+        console.log("E
