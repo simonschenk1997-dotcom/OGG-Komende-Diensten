@@ -1,64 +1,54 @@
-const API_ROOT = 'https://api.kerkdienstgemist.nl/api/v2';
-
-function response(body, status, origin) {
-  return new Response(JSON.stringify(body, null, 2), {
-    status,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Access-Control-Allow-Origin": origin || "*",
-      "Vary": "Origin"
-    }
-  });
-}
+const API_ROOT = "https://api.kerkdienstgemist.nl/api/v2";
 
 async function api(path, token) {
-  const result = await fetch(`${API_ROOT}${path}`, {
+  const res = await fetch(API_ROOT + path, {
     headers: {
-      "Accept": "application/vnd.api+json",
-      "Authorization": `Bearer ${token}`
-    }
+      Accept: "application/vnd.api+json",
+      Authorization: `Bearer ${token}`,
+    },
   });
 
-  if (!result.ok) {
-    const text = await result.text();
-    throw new Error(`HTTP ${result.status}: ${text}`);
+  const text = await res.text();
+
+  if (!res.ok) {
+    throw new Error(`API ${res.status}: ${text}`);
   }
 
-  return result.json();
+  return JSON.parse(text);
 }
 
 export default {
   async fetch(request, env) {
-
-    const origin = request.headers.get("Origin");
-    const allowedOrigin = env.ALLOWED_ORIGIN || "*";
+    const headers = {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": env.ALLOWED_ORIGIN || "*",
+    };
 
     if (request.method === "OPTIONS") {
-      return new Response(null, {
-        headers: {
-          "Access-Control-Allow-Origin": allowedOrigin,
-          "Access-Control-Allow-Methods": "GET, OPTIONS",
-          "Access-Control-Allow-Headers": "*"
-        }
-      });
+      return new Response("", { headers });
     }
 
     try {
-
-      const search = await api(
-        "/search?country=350&denomination=37&include=station&page=1&size=1&q=_",
+      const result = await api(
+        "/search?country=350&denomination=37&size=10&q=_",
         env.KERKDIENSTGEMIST_TOKEN
       );
 
-      return response(search, 200, allowedOrigin);
-
-    } catch (error) {
-
-      return response({
-        error: error.message,
-        stack: error.stack
-      }, 500, allowedOrigin);
-
+      return new Response(JSON.stringify(result), {
+        status: 200,
+        headers,
+      });
+    } catch (e) {
+      return new Response(
+        JSON.stringify({
+          error: e.message,
+          stack: e.stack,
+        }),
+        {
+          status: 500,
+          headers,
+        }
+      );
     }
-  }
+  },
 };
