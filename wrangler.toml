@@ -1,0 +1,7 @@
+name = "ogg-komende-diensten-api"
+main = "worker.js"
+compatibility_date = "2025-08-01"
+
+# Public GitHub Pages origin. Change this only if you use a custom domain.
+[vars]
+ALLOWED_ORIGIN = "https://simonschenk1997-dotcom.github.io"

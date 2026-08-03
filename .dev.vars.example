@@ -1,0 +1,2 @@
+# Kopieer lokaal naar .dev.vars; commit dit bestand nooit.
+KERKDIENSTGEMIST_TOKEN=plak-hier-je-token
