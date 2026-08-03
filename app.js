@@ -1,4 +1,3 @@
-
 const state = {
     services: [],
     favorites: new Set(JSON.parse(localStorage.getItem("ogg-favorites") || "[]")),
@@ -128,4 +127,47 @@ async function load() {
 
         const text = await response.text();
 
-        console.log("E
+        console.log("Eerste 200 tekens:", text.substring(0,200));
+
+        const data = JSON.parse(text);
+
+        state.services = data.services || [];
+
+        console.log("Aantal diensten:", state.services.length);
+
+        el.status.textContent =
+            `${state.services.length} komende diensten`;
+
+        render();
+
+    } catch (err) {
+
+        console.error(err);
+
+        el.status.textContent =
+            "Kan services.json niet laden.";
+
+        state.services = [];
+
+        render();
+    }
+}
+
+el.search.addEventListener("input", render);
+
+document.querySelector("#refresh").onclick = load;
+
+document.querySelectorAll(".nav-item[data-view]").forEach(btn => {
+    btn.onclick = () => {
+        state.view = btn.dataset.view;
+        document.querySelectorAll(".nav-item[data-view]")
+            .forEach(x => x.classList.toggle("active", x === btn));
+        render();
+    };
+});
+
+if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./service-worker.js");
+}
+
+load();
