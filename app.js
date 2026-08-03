@@ -12,48 +12,44 @@ const el = {
     search: document.querySelector('#search')
 };
 
-// Website leest rechtstreeks uit GitHub
-const API_URL = "data/services.json";
+// Altijd absolute URL gebruiken
+const API_URL = new URL("./data/services.json", window.location.href).href;
 
-const dateFormatter = new Intl.DateTimeFormat('nl-NL', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
+const dateFormatter = new Intl.DateTimeFormat("nl-NL", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric"
 });
 
-const timeFormatter = new Intl.DateTimeFormat('nl-NL', {
-    hour: '2-digit',
-    minute: '2-digit'
+const timeFormatter = new Intl.DateTimeFormat("nl-NL", {
+    hour: "2-digit",
+    minute: "2-digit"
 });
 
-const serviceKey = service => `${service.station_id}-${service.start_at}`;
+const serviceKey = s => `${s.station_id}-${s.start_at}`;
 
 function saveFavorites() {
-    localStorage.setItem('ogg-favorites', JSON.stringify([...state.favorites]));
+    localStorage.setItem("ogg-favorites", JSON.stringify([...state.favorites]));
 }
 
 function filteredServices() {
-    const q = el.search.value.trim().toLocaleLowerCase('nl-NL');
+    const q = el.search.value.trim().toLowerCase();
 
-    return state.services.filter(service =>
-        (state.view !== 'favorites' || state.favorites.has(serviceKey(service))) &&
-        (!q ||
-            [
-                service.gemeente,
-                service.voorganger,
-                service.titel
-            ].join(' ').toLocaleLowerCase('nl-NL').includes(q))
+    return state.services.filter(s =>
+        (state.view !== "favorites" || state.favorites.has(serviceKey(s))) &&
+        (!q || `${s.gemeente} ${s.voorganger} ${s.titel}`.toLowerCase().includes(q))
     );
 }
 
 function render() {
+
     const items = filteredServices();
 
     el.services.replaceChildren();
     el.empty.hidden = items.length > 0;
 
-    let lastDay = '';
+    let lastDay = "";
 
     for (const service of items) {
 
@@ -62,60 +58,56 @@ function render() {
         if (date.toDateString() !== lastDay) {
             lastDay = date.toDateString();
 
-            const heading = document.createElement('h1');
-            heading.className = 'day-heading';
-            heading.textContent = dateFormatter.format(date);
+            const h = document.createElement("h1");
+            h.className = "day-heading";
+            h.textContent = dateFormatter.format(date);
 
-            el.services.append(heading);
+            el.services.append(h);
         }
 
         const node = el.template.content.cloneNode(true);
 
-        const key = serviceKey(service);
+        node.querySelector(".date-marker").innerHTML =
+            `<strong>${date.getDate()}</strong>${date.toLocaleDateString("nl-NL",{month:"short"}).toUpperCase()}${date.getFullYear()}`;
 
-        node.querySelector('.date-marker').innerHTML =
-            `<strong>${date.getDate()}</strong>${date.toLocaleDateString('nl-NL', { month: 'short' }).toUpperCase()}${date.getFullYear()}`;
+        node.querySelector("h2").textContent = service.gemeente || "Onbekende gemeente";
 
-        node.querySelector('h2').textContent =
-            service.gemeente || 'Onbekende gemeente';
+        node.querySelector(".metadata").textContent =
+            `${timeFormatter.format(date)} · ${service.voorganger || "Voorganger onbekend"}`;
 
-        node.querySelector('.metadata').textContent =
-            `${timeFormatter.format(date)} · ${service.voorganger || 'Voorganger onbekend'}`;
+        node.querySelector(".leesdienst").hidden = !service.is_leesdienst;
 
-        node.querySelector('.leesdienst').hidden = !service.is_leesdienst;
-
-        const liturgy = node.querySelector('.liturgy');
+        const liturgy = node.querySelector(".liturgy");
 
         if (service.liturgie) {
-            liturgy.querySelector('p').textContent = service.liturgie;
+            liturgy.querySelector("p").innerHTML = service.liturgie;
         } else {
             liturgy.hidden = true;
         }
 
-        const link = node.querySelector('.livestream');
+        const live = node.querySelector(".livestream");
 
         if (service.livestream_url) {
-            link.href = service.livestream_url;
+            live.href = service.livestream_url;
         } else {
-            link.hidden = true;
+            live.hidden = true;
         }
 
-        const favorite = node.querySelector('.favorite');
-        const isFavorite = state.favorites.has(key);
+        const fav = node.querySelector(".favorite");
+        const key = serviceKey(service);
 
-        favorite.classList.toggle('active', isFavorite);
-        favorite.setAttribute('aria-pressed', isFavorite);
+        fav.classList.toggle("active", state.favorites.has(key));
 
-        favorite.addEventListener('click', () => {
-            if (isFavorite) {
+        fav.onclick = () => {
+
+            if (state.favorites.has(key))
                 state.favorites.delete(key);
-            } else {
+            else
                 state.favorites.add(key);
-            }
 
             saveFavorites();
             render();
-        });
+        };
 
         el.services.append(node);
     }
@@ -123,109 +115,16 @@ function render() {
 
 async function load() {
 
-    el.status.className = 'status';
-    el.status.textContent = 'Diensten laden…';
+    el.status.className = "status";
+    el.status.textContent = "Diensten laden…";
 
     try {
 
-        const response = await fetch(API_URL);
+        const response = await fetch(API_URL, {
+            cache: "no-store"
+        });
 
-        if (!response.ok) {
+        if (!response.ok)
             throw new Error(`HTTP ${response.status}`);
-        }
 
-        const data = await response.json();
-
-        state.services = data.services || [];
-
-        el.status.textContent =
-            `${state.services.length} komende diensten · bijgewerkt ${new Date().toLocaleTimeString('nl-NL', {
-                hour: '2-digit',
-                minute: '2-digit'
-            })}`;
-
-        render();
-
-    } catch (error) {
-
-        console.error(error);
-
-        state.services = [];
-        render();
-
-        el.status.className = 'status error';
-        el.status.textContent = 'Kan services.json niet laden.';
-    }
-}
-
-el.search.addEventListener('input', render);
-
-document.querySelector('#refresh').addEventListener('click', load);
-
-document.querySelectorAll('.nav-item[data-view]').forEach(button => {
-
-    button.addEventListener('click', () => {
-
-        state.view = button.dataset.view;
-
-        document.querySelectorAll('.nav-item[data-view]').forEach(item =>
-            item.classList.toggle('active', item === button)
-        );
-
-        render();
-    });
-
-});
-
-const root = document.documentElement;
-
-root.dataset.theme = localStorage.getItem('ogg-theme') || 'auto';
-
-document.querySelector('#theme-toggle').addEventListener('click', () => {
-
-    const next =
-        root.dataset.theme === 'dark'
-            ? 'light'
-            : root.dataset.theme === 'light'
-            ? 'dark'
-            : 'dark';
-
-    root.dataset.theme = next;
-
-    localStorage.setItem('ogg-theme', next);
-
-});
-
-let deferredPrompt;
-
-window.addEventListener('beforeinstallprompt', event => {
-
-    event.preventDefault();
-
-    deferredPrompt = event;
-
-    document.querySelector('#install').hidden = false;
-
-});
-
-document.querySelector('#install').addEventListener('click', async () => {
-
-    if (!deferredPrompt) return;
-
-    deferredPrompt.prompt();
-
-    await deferredPrompt.userChoice;
-
-    deferredPrompt = null;
-
-    document.querySelector('#install').hidden = true;
-
-});
-
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('service-worker.js');
-    });
-}
-
-load();
+       
